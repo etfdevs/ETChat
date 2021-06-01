@@ -1,3 +1,3 @@
-[submodule "JKClient"]
-	path = JKClient
-	url = https://github.com/entdark/JKClient
+[submodule "ETClient"]
+	path = ETClient
+	url = https://github.com/etfdevs/ETClient
