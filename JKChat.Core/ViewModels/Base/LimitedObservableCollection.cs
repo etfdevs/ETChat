@@ -1,13 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Text;
 
 using MvvmCross.ViewModels;
 
 namespace JKChat.Core.ViewModels.Base {
 	public class LimitedObservableCollection<T> : MvxObservableCollection<T> {
-		private int limit;
+		private readonly int limit;
 		public LimitedObservableCollection(int limit) {
 			if (limit < 0) {
 				throw new ArgumentOutOfRangeException(nameof(limit));
@@ -44,13 +43,17 @@ namespace JKChat.Core.ViewModels.Base {
 			base.AddRange(items);
 		}
 
-		public void InsertRange(int index, IEnumerable<T> items) {
+		public void InsertRange(int index, IEnumerable<T> items, bool silently = false) {
 			using (SuppressEvents()) {
 				foreach (var item in items) {
 					Insert(index, item);
 				}
 			}
-			OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, items, 0));
+			if (!silently) {
+				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, items, 0));
+			} else {
+				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, Items));
+			}
 		}
 	}
 }

@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using CoreGraphics;
+﻿using CoreGraphics;
 
 using Foundation;
+
+using ObjCRuntime;
 
 using UIKit;
 
@@ -59,7 +56,7 @@ namespace JKChat.iOS.Controls {
 			Initialize();
 		}
 
-		protected internal PlaceholderTextView(IntPtr handle) : base(handle) {
+		protected internal PlaceholderTextView(NativeHandle handle) : base(handle) {
 			Initialize();
 		}
 

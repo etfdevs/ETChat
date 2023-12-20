@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 using CoreGraphics;
 
@@ -11,34 +9,6 @@ using UIKit;
 
 namespace JKChat.iOS.Helpers {
 	public static class iOSExtensions {
-		public static float iPhoneX(this float v, float v2) {
-			bool iPhoneX = UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Phone
-			&& UIDevice.CurrentDevice.CheckSystemVersion(11, 0)
-			&& (new UIWindow(UIScreen.MainScreen.Bounds).SafeAreaInsets.Top > 24.0f);
-			return iPhoneX ? v2 : v;
-		}
-
-		public static TView FindView<TView>(this UIView view) where TView : UIView {
-			if (view == null) {
-				return null;
-			}
-			var subviews = view.Subviews;
-			if (subviews == null) {
-				return null;
-			}
-			foreach (var subview in subviews) {
-				if (subview is TView tview) {
-					return tview;
-				} else {
-					var subsubview = subview.FindView<TView>();
-					if (subsubview != null) {
-						return subsubview;
-					}
-				}
-			}
-			return null;
-		}
-
 		public static void GetKeyboardUserInfo(this NSNotification notification, out double duration, out UIViewAnimationOptions animationOptions,
 												out CGRect endKeyboardFrame, out CGRect beginKeyboardFrame) {
 			var userInfo = notification.UserInfo;
@@ -46,21 +16,20 @@ namespace JKChat.iOS.Helpers {
 			UIViewAnimationCurve curve = (UIViewAnimationCurve)(int)((userInfo?.ObjectForKey(UIKeyboard.AnimationCurveUserInfoKey) as NSNumber)?.NIntValue ?? 0);
 			endKeyboardFrame = (userInfo?.ObjectForKey(UIKeyboard.FrameEndUserInfoKey) as NSValue)?.CGRectValue ?? CGRect.Empty;
 			beginKeyboardFrame = (userInfo?.ObjectForKey(UIKeyboard.FrameBeginUserInfoKey) as NSValue)?.CGRectValue ?? CGRect.Empty;
-			switch (curve) {
-			case UIViewAnimationCurve.Linear:
-				animationOptions = UIViewAnimationOptions.CurveLinear;
-				break;
-			case UIViewAnimationCurve.EaseIn:
-				animationOptions = UIViewAnimationOptions.CurveEaseIn;
-				break;
-			case UIViewAnimationCurve.EaseInOut:
-				animationOptions = UIViewAnimationOptions.CurveEaseInOut;
-				break;
-			default:
-			case UIViewAnimationCurve.EaseOut:
-				animationOptions = UIViewAnimationOptions.CurveEaseOut;
-				break;
-			}
+			animationOptions = curve switch {
+				UIViewAnimationCurve.Linear => UIViewAnimationOptions.CurveLinear,
+				UIViewAnimationCurve.EaseIn => UIViewAnimationOptions.CurveEaseIn,
+				UIViewAnimationCurve.EaseInOut => UIViewAnimationOptions.CurveEaseInOut,
+				_ => UIViewAnimationOptions.CurveEaseOut,
+			};
+		}
+
+		public static NSDictionary<NSString, NSString> ToNSDictionary(this IDictionary<string, string> dictionary) {
+			return new NSDictionary<NSString, NSString>(dictionary.Keys.Select(k => new NSString(k)).ToArray(), dictionary.Values.Select(v => new NSString(v)).ToArray());
+		}
+
+		public static IDictionary<string, string> ToDictionary(this NSDictionary dictionary) {
+			return dictionary.ToDictionary(kv => kv.Key.ToString(), kv => kv.Value.ToString());
 		}
 	}
 }

@@ -1,9 +1,26 @@
-﻿using JKChat.Core.Models;
+﻿using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Threading.Tasks;
 
-using MvvmCross.ViewModels;
+using JKChat.Core.Helpers;
+using JKChat.Core.Messages;
+using JKChat.Core.Models;
+using JKChat.Core.Navigation;
+using JKChat.Core.Navigation.Parameters;
+using JKChat.Core.Services;
+using JKChat.Core.ViewModels.Base.Items;
+using JKChat.Core.ViewModels.Chat;
+
+using MvvmCross;
+using MvvmCross.Commands;
+using MvvmCross.Plugin.Messenger;
 
 namespace JKChat.Core.ViewModels.ServerList.Items {
-	public class ServerListItemVM : MvxNotifyPropertyChanged {
+	public class ServerListItemVM : SelectableItemVM, IEquatable<ServerListItemVM> {
+		public IMvxCommand ConnectCommand { get; init; }
+
 		internal JKClient.ServerInfo ServerInfo { get; private set; }
 
 		private bool needPassword;
@@ -15,8 +32,12 @@ namespace JKChat.Core.ViewModels.ServerList.Items {
 		private string serverName;
 		public string ServerName {
 			get => serverName;
-			set => SetProperty(ref serverName, value);
+			set => SetProperty(ref serverName, value, () => {
+				CleanServerName = ColourTextHelper.CleanString(value);
+			});
 		}
+
+		public string CleanServerName { get; private set; }
 
 		private string mapName;
 		public string MapName {
@@ -30,92 +51,133 @@ namespace JKChat.Core.ViewModels.ServerList.Items {
 			set => SetProperty(ref players, value);
 		}
 
-		private string ping;
-		public string Ping {
-			get => ping;
-			set => SetProperty(ref ping, value);
-		}
-
-		private string gameType;
-		public string GameType {
-			get => gameType;
-			set => SetProperty(ref gameType, value);
-		}
-
 		private ConnectionStatus status;
 		public ConnectionStatus Status {
 			get => status;
 			set => SetProperty(ref status, value);
 		}
 
-		public ServerListItemVM() {}
+		private Game game;
+		public Game Game {
+			get => game;
+			set => SetProperty(ref game, value);
+		}
 
-		internal ServerListItemVM(JKClient.ServerInfo serverInfo) {
+		private string gameName;
+		public string GameName {
+			get => gameName;
+			set => SetProperty(ref gameName, value);
+		}
+
+		private string modification;
+		public string Modification {
+			get => modification;
+			set => SetProperty(ref modification, value);
+		}
+
+		private string ping;
+		public string Ping {
+			get => ping;
+			set => SetProperty(ref ping, value);
+		}
+
+		private bool isFavourite;
+		public bool IsFavourite {
+			get => isFavourite;
+			set => SetProperty(ref isFavourite, value, () => {
+				Mvx.IoCProvider.Resolve<IMvxMessenger>().Publish(new FavouriteMessage(this, ServerInfo, value));
+			});
+		}
+
+		public string Address => ServerInfo.Address.ToString();
+
+		public string []PlayersList => ServerInfo.Players?.Select(p => p.Name).ToArray();
+
+		public ServerListItemVM() {
+			ConnectCommand = new MvxAsyncCommand(ConnectExecute);
+		}
+
+		internal ServerListItemVM(JKClient.ServerInfo serverInfo) : this() {
 			ServerInfo = serverInfo;
+			Game = serverInfo.Version.ToGame();
+			GameName = serverInfo.Version.ToDisplayString();
 			Set(serverInfo, ConnectionStatus.Disconnected);
 		}
 
 		internal void Set(JKClient.ServerInfo serverInfo, ConnectionStatus status) {
-			NeedPassword = serverInfo.NeedPassword;
-			ServerName = serverInfo.HostName;
-			MapName = serverInfo.MapName;
-			Players = $"{serverInfo.Clients}/{serverInfo.MaxClients}";
-			if (serverInfo.Ping != 0) {
-				Ping = serverInfo.Ping.ToString();
-			}
-			GameType = GetGameType(serverInfo.GameType);
+			Set(serverInfo);
 			Status = status;
 		}
 
-		private static string GetGameType(JKClient.GameType gameType) {
-			switch (gameType) {
-			default:
-			case JKClient.GameType.FFA:
-				return "Free For All";
-			case JKClient.GameType.Holocron:
-				return "Holocron";
-			case JKClient.GameType.JediMaster:
-				return "Jedi Master";
-			case JKClient.GameType.Duel:
-				return "Duel";
-			case JKClient.GameType.PowerDuel:
-				return "Power Duel";
-			case JKClient.GameType.SinglePlayer:
-				return "Single Player";
-			case JKClient.GameType.Team:
-				return "Team FFA";
-			case JKClient.GameType.Siege:
-				return "Siege";
-			case JKClient.GameType.CTF:
-				return "Capture the Flag";
-			case JKClient.GameType.CTY:
-				return "CTY";
+		internal void Set(JKClient.ServerInfo serverInfo) {
+			ServerInfo = serverInfo;
+			NeedPassword = serverInfo.NeedPassword;
+			ServerName = serverInfo.HostName;
+			MapName = serverInfo.MapName;
+			Players = $"{serverInfo.Clients.ToString(CultureInfo.InvariantCulture)}/{serverInfo.MaxClients.ToString(CultureInfo.InvariantCulture)}";
+			Modification = serverInfo.GameName;
+			Ping = serverInfo.Ping.ToString();
+		}
+
+		public void SetFavourite(bool isFavourite, bool silently = true) {
+			SetProperty(ref this.isFavourite, isFavourite, nameof(IsFavourite));
+		}
+
+		private async Task ConnectExecute() {
+			if (Status == ConnectionStatus.Disconnected) {
+				await Mvx.IoCProvider.Resolve<INavigationService>().NavigateFromRoot<ChatViewModel, ServerInfoParameter>(new(this), this.ServerInfo);
+			} else {
+				Mvx.IoCProvider.Resolve<IGameClientsService>().GetOrStartClient(ServerInfo).Disconnect();
 			}
 		}
 
-		public static JKClient.GameType GetGameType(string gameType) {
-			switch (gameType) {
-			default:
-			case "Free For All":
-				return JKClient.GameType.FFA;
-			case "Holocron":
-				return JKClient.GameType.Holocron;
-			case "Jedi Master":
-				return JKClient.GameType.JediMaster;
-			case "Duel":
-				return JKClient.GameType.Duel;
-			case "Power Duel":
-				return JKClient.GameType.PowerDuel;
-			case "Single Player":
-				return JKClient.GameType.SinglePlayer;
-			case "Team FFA":
-				return JKClient.GameType.Team;
-			case "Siege":
-				return JKClient.GameType.Siege;
-			case "Capture the Flag":
-				return JKClient.GameType.CTF;
-			case "CTY":
-				return JKClient.GameType.CTY;
+		public bool Equals(ServerListItemVM other) {
+			if (other is null)
+				return false;
+			return this.ServerInfo == other.ServerInfo;
+		}
+
+		public override bool Equals(object obj) {
+			return Equals(obj as ServerListItemVM);
+		}
+
+		public override int GetHashCode() {
+			return this.ServerInfo.GetHashCode();
+		}
+
+		public async Task<bool> Refresh() {
+			try {
+				var serverInfo = await Mvx.IoCProvider.Resolve<IServerListService>().GetServerInfo(ServerInfo);
+				if (serverInfo != null) {
+					Set(serverInfo);
+					await Mvx.IoCProvider.Resolve<ICacheService>().UpdateServer(this);
+					return true;
+				}
+			} catch (Exception exception) {
+				Debug.WriteLine(exception);
+			}
+			return false;
+		}
+
+		public static async Task<ServerListItemVM> FindExistingOrLoad(string address, bool silently = false, bool load = true) {
+			ServerListItemVM server = null;
+			bool success = silently ? await task() : await Common.ExceptionalTaskRun(task);
+			return server;
+			async Task<bool> task() {
+				var netAddress = JKClient.NetAddress.FromString(address);
+				server = await Mvx.IoCProvider.Resolve<ICacheService>().GetCachedServer(netAddress);
+				if (server != null)
+					return false;
+				var gameClient = Mvx.IoCProvider.Resolve<IGameClientsService>().GetClient(netAddress);
+				if (gameClient != null) {
+					server = new ServerListItemVM(gameClient.ServerInfo);
+				} else if (load) {
+					var serverInfo = await Mvx.IoCProvider.Resolve<IServerListService>().GetServerInfo(netAddress);
+					if (serverInfo != null) {
+						server = new ServerListItemVM(serverInfo);
+					}
+				}
+				return true;
 			}
 		}
 	}

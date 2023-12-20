@@ -5,6 +5,7 @@ using MvvmCross.Plugin.Visibility;
 using UIKit;
 
 namespace JKChat.iOS {
+	[Preserve(AllMembers = true)]
 	public class LinkerPleaseInclude {
 		public void Include(MvxVisibilityValueConverter vvc) {
 			vvc = new MvxVisibilityValueConverter();
@@ -21,6 +22,14 @@ namespace JKChat.iOS {
 		}
 		public void Include(UIView view) {
 			view.BackgroundColor = Theme.Color.Accent;
+		}
+		public void Include(UISearchBar searchBar) {
+			searchBar.Text = searchBar.Text + "";
+			searchBar.Placeholder = searchBar.Placeholder + "";
+			searchBar.TextChanged += (sender, ev) => {};
+		}
+		public void Include(UIBarButtonItem buttonItem) {
+			buttonItem.Clicked += (sender, ev) => {};
 		}
 	}
 }

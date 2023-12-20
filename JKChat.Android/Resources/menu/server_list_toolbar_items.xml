@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+	xmlns:app="http://schemas.android.com/apk/res-auto">
+	<item
+		android:id="@+id/report_item"
+		android:icon="@drawable/ic_report_problem"
+		app:showAsAction="always"
+		app:actionLayout="@layout/report_menu_item"/>
+	<item
+		android:id="@+id/search_item"
+		android:icon="@drawable/ic_search"
+		app:showAsAction="always"
+		app:actionLayout="@layout/search_menu_item"/>
+	<item
+		android:id="@+id/filter_item"
+		android:icon="@drawable/ic_tune"
+		app:showAsAction="always"
+		app:actionLayout="@layout/filter_menu_item"/>
+</menu>

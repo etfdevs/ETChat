@@ -1,29 +1,21 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
-    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+    <TargetFramework>net7.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <UseMauiEssentials>true</UseMauiEssentials>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Remove="Resources\Fonts\**" />
     <EmbeddedResource Remove="Resources\Fonts\**" />
     <None Remove="Resources\Fonts\**" />
   </ItemGroup>
-
   <ItemGroup>
-    <PackageReference Include="MvvmCross" Version="7.1.2" />
-    <PackageReference Include="MvvmCross.Plugin.Messenger" Version="7.1.2" />
-    <PackageReference Include="sqlite-net-pcl" Version="1.7.335" />
-    <PackageReference Include="Xamarin.Essentials" Version="1.5.3.2" />
+    <PackageReference Include="MvvmCross" Version="9.1.1" />
+    <PackageReference Include="MvvmCross.Plugin.Messenger" Version="9.1.1" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.8.116" />
+    <PackageReference Include="MvvmCross.Plugin.Visibility" Version="9.1.1" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Resources\" />
-  </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\JKClient\JKClient\JKClient.csproj" />
   </ItemGroup>
-
 </Project>

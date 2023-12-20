@@ -1,44 +1,46 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Runtime;
-using Android.Views;
-using Android.Widget;
 
 using AndroidX.Core.App;
 using AndroidX.Lifecycle;
 
 using JKChat.Android.Views.Main;
 using JKChat.Core.Messages;
-using JKChat.Core.Models;
 using JKChat.Core.Services;
 
 using MvvmCross;
 using MvvmCross.Plugin.Messenger;
 
+using Microsoft.Maui.ApplicationModel;
+using Android.Content.PM;
+
 namespace JKChat.Android.Services {
-	[Service(Enabled = true)]
+	[Service(Enabled = true, ForegroundServiceType = ForegroundService.TypeNone)]
 	public class ForegroundGameClientsService : Service {
 		private const string NotificationChannelID = "JKChat Foreground Service";
-		private const int NotificationID = 1337;
+		private const int NotificationID = 2;
 
 		private MvxSubscriptionToken serverInfoMessageToken;
 
+		internal static bool IsRunning = false;
+
 		public override void OnCreate() {
+			IsRunning = true;
 			base.OnCreate();
 			CreateNotificationChannel();
 			if (serverInfoMessageToken != null) {
 				Mvx.IoCProvider.Resolve<IMvxMessenger>().Unsubscribe<ServerInfoMessage>(serverInfoMessageToken);
 			}
 			serverInfoMessageToken = Mvx.IoCProvider.Resolve<IMvxMessenger>().Subscribe<ServerInfoMessage>(OnServerInfoMessage);
+			HandleForeground(true);
 		}
 
 		public override void OnDestroy() {
+			IsRunning = false;
 			if (serverInfoMessageToken != null) {
 				Mvx.IoCProvider.Resolve<IMvxMessenger>().Unsubscribe<ServerInfoMessage>(serverInfoMessageToken);
 				serverInfoMessageToken = null;
@@ -51,43 +53,54 @@ namespace JKChat.Android.Services {
 		}
 
 		public override StartCommandResult OnStartCommand(Intent intent, StartCommandFlags flags, int startId) {
-			var notification = CreateNotification(1, 0);
-			StartForeground(NotificationID, notification);
+			HandleForeground(true);
 			return StartCommandResult.Sticky;
 		}
 
-		public void Stop() {
-			StopForeground(true);
-			StopSelf();
+		private void OnServerInfoMessage(ServerInfoMessage message) {
+			HandleForeground(false);
 		}
 
-		private void OnServerInfoMessage(ServerInfoMessage message) {
+		private void HandleForeground(bool start) {
 			FreeMemory();
 			var gameClientsService = Mvx.IoCProvider.Resolve<IGameClientsService>();
 			int clientsCount = gameClientsService.ActiveClients;
 			int unreadMessages = gameClientsService.UnreadMessages;
 			if (clientsCount > 0/* || unreadMessages > 0*/) {
 				var notification = CreateNotification(clientsCount, unreadMessages);
-				var notificationManager = (NotificationManager)GetSystemService(Context.NotificationService);
-				notificationManager.Notify(NotificationID, notification);
+				if (start) {
+					StartForeground(NotificationID, notification);
+				} else {
+					var notificationManager = (NotificationManager)GetSystemService(Context.NotificationService);
+					notificationManager.Notify(NotificationID, notification);
+				}
+			} else {
+				StopForeground();
+				StopSelf();
+			}
+		}
+
+		private void StopForeground() {
+			if (Build.VERSION.SdkInt >= BuildVersionCodes.N) {
+				StopForeground(StopForegroundFlags.Remove);
 			} else {
 				StopForeground(true);
-				StopSelf();
 			}
 		}
 
 		private Notification CreateNotification(int count, int messages) {
 			var activityIntent = new Intent(this, typeof(MainActivity));
-			var pendingIntent = PendingIntent.GetActivity(this, 0, activityIntent, 0);
+			var pendingIntent = PendingIntent.GetActivity(this, 0, activityIntent, PendingIntentFlags.Immutable);
 			var closeIntent = new Intent(this, typeof(ForegroundReceiver));
 			closeIntent.SetAction("Test");
-			var closePendingIntent = PendingIntent.GetBroadcast(this, 2, closeIntent, 0);
+			var closePendingIntent = PendingIntent.GetBroadcast(this, 2, closeIntent, PendingIntentFlags.Immutable);
 			var notification = new NotificationCompat.Builder(this, NotificationChannelID)
 				.SetAutoCancel(false)
 				.SetContentTitle($"You are connected to {count} server" + (count > 1 ? "s" : string.Empty))
 				.SetSmallIcon(Resource.Mipmap.ic_launcher)
 				.SetContentIntent(pendingIntent)
 				.SetPriority(NotificationCompat.PriorityLow)
+				.SetOngoing(true)
 				.AddAction(new NotificationCompat.Action(0, count > 1 ? "Disconnect from all" : "Disconnect", closePendingIntent));
 			if (messages > 0) {
 				notification.SetContentText($"You have {messages} unread message" + (messages > 1 ? "s" : string.Empty));
@@ -98,13 +111,14 @@ namespace JKChat.Android.Services {
 		private void CreateNotificationChannel() {
 			if (Build.VERSION.SdkInt >= BuildVersionCodes.O) {
 				var channel = new NotificationChannel(NotificationChannelID, NotificationChannelID, NotificationImportance.Low);
-				var notificationManager = (NotificationManager)GetSystemService(Context.NotificationService);
+				channel.SetShowBadge(false);
+				var notificationManager = NotificationManagerCompat.From(this);
 				notificationManager.CreateNotificationChannel(channel);
 			}
 		}
 
 		private static void FreeMemory() {
-			if (Xamarin.Essentials.Platform.CurrentActivity is MainActivity mainActivity && mainActivity.Lifecycle.CurrentState.IsAtLeast(Lifecycle.State.Resumed)) {
+			if (Platform.CurrentActivity is MainActivity mainActivity && mainActivity.Lifecycle.CurrentState.IsAtLeast(Lifecycle.State.Resumed)) {
 				return;
 			}
 			GC.Collect();
@@ -113,6 +127,10 @@ namespace JKChat.Android.Services {
 
 	[BroadcastReceiver]
 	public class ForegroundReceiver : BroadcastReceiver {
+		public ForegroundReceiver() {
+		}
+		public ForegroundReceiver(IntPtr javaReference, JniHandleOwnership transfer) : base(javaReference, transfer) {
+		}
 		public override void OnReceive(Context context, Intent intent) {
 			var gameClientsService = Mvx.IoCProvider.Resolve<IGameClientsService>();
 			gameClientsService.DisconnectFromAll();
